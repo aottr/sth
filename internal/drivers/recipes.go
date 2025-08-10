@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 
 	"github.com/aottr/sth/internal"
 	"github.com/aottr/sth/internal/utils"
@@ -44,6 +45,11 @@ func RunRecipe(name string, recipe *internal.Recipe) error {
 	}
 	fmt.Printf("✅ Recipe %s completed!\n", name)
 	return nil
+}
+
+func IsInstalled(pkg string) bool {
+	_, err := exec.LookPath(pkg)
+	return err == nil
 }
 
 func FetchRecipeIndex(url string) (*internal.RecipeIndex, error) {

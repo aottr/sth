@@ -27,21 +27,37 @@ func (d *DebianDriver) Install() error {
 	if _, err := utils.RunCommand("sudo", "apt", "update"); err != nil {
 		return err
 	}
-	for pkg, version := range d.Packages {
+	for pkg := range d.Packages {
+
+		if err := ensureLatest(pkg); err != nil {
+			return err
+		}
 		// c := installer.ParseConstraint(version)
-		switch {
-		case strings.EqualFold(version, "latest"):
-			if err := ensureLatest(pkg); err != nil {
-				return err
-			}
-		default:
-			// figure out how to get apt versions to follow upstream...
-			if err := ensureLatest(pkg); err != nil {
-				return err
-			}
-			// if err := ensureVersion(pkg, c); err != nil {
-			// 	return err
-			// }
+		// switch {
+		// case strings.EqualFold(version, "latest"):
+		// 	if err := ensureLatest(pkg); err != nil {
+		// 		return err
+		// 	}
+		// default:
+		// figure out how to get apt versions to follow upstream...
+		// if err := ensureLatest(pkg); err != nil {
+		// 	return err
+		// }
+		// if err := ensureVersion(pkg, c); err != nil {
+		// 	return err
+		// }
+		//}
+	}
+	return nil
+}
+
+func InstallSome(pkgs []string) error {
+	if _, err := utils.RunCommand("sudo", "apt", "update"); err != nil {
+		return err
+	}
+	for _, pkg := range pkgs {
+		if err := ensureLatest(pkg); err != nil {
+			return err
 		}
 	}
 	return nil

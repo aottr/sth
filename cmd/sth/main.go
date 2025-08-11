@@ -10,7 +10,6 @@ import (
 	installer "github.com/aottr/sth/internal/drivers"
 	"github.com/aottr/sth/internal/drivers/debian"
 	"github.com/urfave/cli/v3"
-	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -18,25 +17,24 @@ func main() {
 	cmd := &cli.Command{
 		Name:  "sth",
 		Usage: "Just install sth",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "file",
+				Usage:   "packages config file",
+				Value:   "packages.yml",
+				Aliases: []string{"f"},
+			},
+		},
 		Commands: []*cli.Command{
 			{
 				Name:    "install",
 				Aliases: []string{"i"},
-				Arguments: []cli.Argument{
-					&cli.StringArg{
-						Name:  "file",
-						Value: "packages.yml",
-					},
-				},
-				Usage: "Install packages and recipes from YAML",
+				Usage:   "Install packages and recipes from YAML",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					data, err := os.ReadFile(cmd.StringArg("file"))
+
+					pkgs, err := internal.LoadPackages(cmd.String("file"))
 					if err != nil {
-						log.Fatalf("❌ Failed to read %s: %v", cmd.StringArg("file"), err)
-					}
-					var pkgs internal.Packages
-					if err := yaml.Unmarshal(data, &pkgs); err != nil {
-						log.Fatalf("❌ Failed to parse YAML: %v", err)
+						log.Fatalf("❌ Failed to load packages: %v", err)
 					}
 
 					// Install apt, flatpak packages
@@ -84,11 +82,66 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:    "add",
+				Aliases: []string{"a"},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "type",
+						Usage:   "[apt|flatpak|recipe]",
+						Value:   "apt",
+						Aliases: []string{"t"},
+						Validator: func(t string) error {
+							if t == "apt" || t == "flatpak" || t == "recipe" {
+								return nil
+							}
+							return fmt.Errorf("invalid package type: %s", t)
+						},
+					},
+				},
+				Arguments: []cli.Argument{
+					&cli.StringArgs{
+						Name: "package",
+						Min:  0,
+						Max:  10,
+					},
+				},
+				Usage: "Add a package to the list",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					pkgs, err := internal.LoadPackages(cmd.String("file"))
+					if err != nil {
+						log.Fatalf("❌ Failed to load packages: %v", err)
+					}
+					pkg := cmd.StringArgs("package")
+					if len(pkg) == 0 {
+						return fmt.Errorf("no package specified")
+					}
+					err = pkgs.Add(internal.PackageTypeApt, pkg)
+					if err != nil {
+						return err
+					}
+					fmt.Println("✅ Added package to list")
+					err = debian.InstallSome(pkg)
+					return err
+				},
+			},
+			{
+				Name:  "init",
+				Usage: "Initialize packages.yml",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					_, err := internal.Init(cmd.String("file"))
+					if err != nil {
+						log.Fatalf("❌ Failed to initialize packages: %v", err)
+					}
+					return nil
+				},
+			},
 		},
 	}
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	// switch os.Args[1] {

@@ -1,12 +1,5 @@
 package internal
 
-type Packages struct {
-	Distro  string            `yaml:"distro"`
-	Arch    string            `yaml:"arch"`
-	Apt     map[string]string `yaml:"apt"`
-	Flatpak map[string]string `yaml:"flatpak"`
-	Recipes []string          `yaml:"recipes"`
-}
 type Dependencies struct {
 	Apt     []string `yaml:"apt,omitempty"`
 	Recipes []string `yaml:"recipes,omitempty"`

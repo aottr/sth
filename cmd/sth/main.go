@@ -7,7 +7,9 @@ import (
 	"os"
 
 	"github.com/aottr/sth/internal"
-	installer "github.com/aottr/sth/internal/drivers"
+	"github.com/aottr/sth/internal/flatpak"
+	"github.com/aottr/sth/internal/native"
+	"github.com/aottr/sth/internal/recipes"
 	"github.com/urfave/cli/v3"
 )
 
@@ -37,29 +39,29 @@ func main() {
 					}
 
 					// Install apt, flatpak packages
-					driver, err := installer.GetDriverForRelease(pkgs.Distro, pkgs)
+					driver, err := native.GetDriverForRelease(pkgs.Distro, pkgs)
 					if err != nil {
 						log.Fatalf("❌ Failed to get driver for distro: %v", err)
 					}
 					if err := driver.InstallAll(); err != nil {
 						log.Fatalf("❌ apt install failed: %v", err)
 					}
-					if err := installer.InstallFlatpak(pkgs.Flatpak); err != nil {
+					if err := flatpak.InstallFlatpak(pkgs.Flatpak); err != nil {
 						log.Fatalf("❌ flatpak install failed: %v", err)
 					}
 
 					// Run remote recipes
 					for _, recipeName := range pkgs.Recipes {
-						recipe, err := installer.FetchRecipe(recipeName, pkgs.Distro)
+						recipe, err := recipes.FetchRecipe(recipeName, pkgs.Distro)
 						if err != nil {
 							log.Fatalf("❌ Failed to fetch recipe '%s': %v", recipeName, err)
 						}
 						// check if installed
-						if installer.IsInstalled(recipeName) {
+						if recipes.IsInstalled(recipeName) {
 							fmt.Println("🔄 Skipping already installed recipe package: ", recipeName)
 							continue
 						}
-						if err := installer.RunRecipe(recipeName, recipe); err != nil {
+						if err := recipes.RunRecipe(recipeName, recipe); err != nil {
 							log.Fatalf("❌ Recipe '%s' failed: %v", recipeName, err)
 						}
 					}
@@ -78,7 +80,7 @@ func main() {
 						Aliases: []string{"l", "ls"},
 						Usage:   "List all recipes",
 						Action: func(ctx context.Context, c *cli.Command) error {
-							installer.ListRecipes()
+							recipes.ListRecipes()
 							return nil
 						},
 					},
@@ -123,7 +125,7 @@ func main() {
 						return err
 					}
 					fmt.Println("✅ Added package to list")
-					driver, err := installer.GetDriverForRelease(pkgs.Distro, nil)
+					driver, err := native.GetDriverForRelease(pkgs.Distro, nil)
 					if err != nil {
 						log.Fatalf("❌ Failed to get driver for distro: %v", err)
 					}

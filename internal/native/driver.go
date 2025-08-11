@@ -1,11 +1,11 @@
-package installer
+package native
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/aottr/sth/internal"
-	"github.com/aottr/sth/internal/drivers/debian"
+	"github.com/aottr/sth/internal/native/apt"
 )
 
 type Op string
@@ -60,9 +60,9 @@ func GetDriverForRelease(releaseID string, packages *internal.Packages) (Driver,
 
 	if _, ok := debianFamily[id]; ok {
 		if packages == nil {
-			return debian.New(map[string]string{}), nil
+			return apt.New(map[string]string{}), nil
 		}
-		return debian.New(packages.Apt), nil
+		return apt.New(packages.Apt), nil
 	}
 	// if _, ok := rhelFamily[id]; ok {
 	// 	return RHELDriver{}

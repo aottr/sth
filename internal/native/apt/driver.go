@@ -1,4 +1,4 @@
-package debian
+package apt
 
 import (
 	"fmt"

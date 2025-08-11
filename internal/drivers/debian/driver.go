@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
-	installer "github.com/aottr/sth/internal/drivers"
+	// installer "github.com/aottr/sth/internal/drivers"
 	"github.com/aottr/sth/internal/utils"
 )
 
@@ -19,7 +19,7 @@ func New(packages map[string]string) *DebianDriver {
 	}
 }
 
-func (d *DebianDriver) Install() error {
+func (d *DebianDriver) InstallAll() error {
 	if len(d.Packages) == 0 {
 		return nil
 	}
@@ -51,7 +51,7 @@ func (d *DebianDriver) Install() error {
 	return nil
 }
 
-func InstallSome(pkgs []string) error {
+func (d *DebianDriver) Install(pkgs []string) error {
 	if _, err := utils.RunCommand("sudo", "apt", "update"); err != nil {
 		return err
 	}
@@ -75,45 +75,45 @@ func ensureLatest(pkg string) error {
 	return nil
 }
 
-func ensureVersion(pkg string, c installer.VersionConstraint) error {
-	// chek if need to install
-	ver, err := getInstalledVersion(pkg)
-	if err != nil {
-		return err
-	}
-	installed, err := satisfiesConstraint(ver, c)
-	if err != nil {
-		return err
-	}
-	if installed {
-		fmt.Printf("🔄 Skipping apt package %s; installed %q satisfies %s %s\n", pkg, ver, string(c.Op), c.Value)
-		return nil
-	}
+// func ensureVersion(pkg string, c installer.VersionConstraint) error {
+// 	// chek if need to install
+// 	ver, err := getInstalledVersion(pkg)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	installed, err := satisfiesConstraint(ver, c)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if installed {
+// 		fmt.Printf("🔄 Skipping apt package %s; installed %q satisfies %s %s\n", pkg, ver, string(c.Op), c.Value)
+// 		return nil
+// 	}
 
-	// installing requested version
-	fmt.Printf("📦 Installing/Upgrading apt package to satisfy %s %s: %s\n", string(c.Op), c.Value, pkg)
-	if _, err := utils.RunCommand("sudo", "apt", "install", "-y", pkg); err != nil {
-		return err
-	}
-	// Re-check
-	ver, _ = getInstalledVersion(pkg)
-	ok, err := satisfiesConstraint(ver, c)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("after install, %s version %q does not satisfy %s %s", pkg, ver, string(c.Op), c.Value)
-	}
+// 	// installing requested version
+// 	fmt.Printf("📦 Installing/Upgrading apt package to satisfy %s %s: %s\n", string(c.Op), c.Value, pkg)
+// 	if _, err := utils.RunCommand("sudo", "apt", "install", "-y", pkg); err != nil {
+// 		return err
+// 	}
+// 	// Re-check
+// 	ver, _ = getInstalledVersion(pkg)
+// 	ok, err := satisfiesConstraint(ver, c)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if !ok {
+// 		return fmt.Errorf("after install, %s version %q does not satisfy %s %s", pkg, ver, string(c.Op), c.Value)
+// 	}
 
-	// mark package as held if version is pinned
-	if c.Op != installer.OpGe {
-		fmt.Printf("⛔ Holding apt package: %s\n", pkg)
-		if _, err := utils.RunCommand("sudo", "apt-mark", "hold", pkg); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// 	// mark package as held if version is pinned
+// 	if c.Op != installer.OpGe {
+// 		fmt.Printf("⛔ Holding apt package: %s\n", pkg)
+// 		if _, err := utils.RunCommand("sudo", "apt-mark", "hold", pkg); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func IsInstalled(pkg string) bool {
 	cmd := exec.Command("dpkg", "-s", pkg)
@@ -187,21 +187,21 @@ func extractUpstream(v string) string {
 	return upstream
 }
 
-func satisfiesConstraint(installedVersion string, c installer.VersionConstraint) (bool, error) {
-	if installedVersion == "" {
-		return false, nil
-	}
-	wantedVersion := strings.TrimSpace(c.Value)
-	if wantedVersion == "" {
-		return false, nil
-	}
-	upstreamVersion := extractUpstream(installedVersion)
-	switch c.Op {
-	case installer.OpEq, installer.OpNone:
-		return dpkgCompare(upstreamVersion, "eq", wantedVersion)
-	case installer.OpGe:
-		return dpkgCompare(upstreamVersion, "ge", wantedVersion)
-	default:
-		return false, fmt.Errorf("unsupported operator: %q", c.Op)
-	}
-}
+// func satisfiesConstraint(installedVersion string, c installer.VersionConstraint) (bool, error) {
+// 	if installedVersion == "" {
+// 		return false, nil
+// 	}
+// 	wantedVersion := strings.TrimSpace(c.Value)
+// 	if wantedVersion == "" {
+// 		return false, nil
+// 	}
+// 	upstreamVersion := extractUpstream(installedVersion)
+// 	switch c.Op {
+// 	case installer.OpEq, installer.OpNone:
+// 		return dpkgCompare(upstreamVersion, "eq", wantedVersion)
+// 	case installer.OpGe:
+// 		return dpkgCompare(upstreamVersion, "ge", wantedVersion)
+// 	default:
+// 		return false, fmt.Errorf("unsupported operator: %q", c.Op)
+// 	}
+// }

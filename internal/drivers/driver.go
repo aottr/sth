@@ -1,6 +1,12 @@
 package installer
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/aottr/sth/internal"
+	"github.com/aottr/sth/internal/drivers/debian"
+)
 
 type Op string
 
@@ -28,6 +34,45 @@ func ParseConstraint(s string) VersionConstraint {
 	}
 }
 
+func GetDriverForRelease(releaseID string, packages *internal.Packages) (Driver, error) {
+	id := strings.ToLower(strings.TrimSpace(releaseID))
+
+	debianFamily := map[string]struct{}{
+		"debian":     {},
+		"ubuntu":     {},
+		"linuxmint":  {},
+		"raspbian":   {},
+		"pop":        {}, // Pop!_OS
+		"neon":       {}, // KDE neon
+		"kali":       {},
+		"zorin":      {},
+		"elementary": {},
+	}
+
+	// rhelFamily := map[string]struct{}{
+	// 	"rhel":      {},
+	// 	"rocky":     {},
+	// 	"almalinux": {},
+	// 	"centos":    {},
+	// 	"fedora":    {},
+	// 	"oracle":    {},
+	// }
+
+	if _, ok := debianFamily[id]; ok {
+		if packages == nil {
+			return debian.New(map[string]string{}), nil
+		}
+		return debian.New(packages.Apt), nil
+	}
+	// if _, ok := rhelFamily[id]; ok {
+	// 	return RHELDriver{}
+	// }
+
+	// Default: try Debian semantics or return a no-op/unsupported driver
+	return nil, fmt.Errorf("unsupported distro: %s", id)
+}
+
 type Driver interface {
-	Install(pkg string) error
+	InstallAll() error
+	Install([]string) error
 }

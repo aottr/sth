@@ -8,7 +8,6 @@ import (
 
 	"github.com/aottr/sth/internal"
 	installer "github.com/aottr/sth/internal/drivers"
-	"github.com/aottr/sth/internal/drivers/debian"
 	"github.com/urfave/cli/v3"
 )
 
@@ -38,8 +37,11 @@ func main() {
 					}
 
 					// Install apt, flatpak packages
-					deb := debian.New(pkgs.Apt)
-					if err := deb.Install(); err != nil {
+					driver, err := installer.GetDriverForRelease(pkgs.Distro, pkgs)
+					if err != nil {
+						log.Fatalf("❌ Failed to get driver for distro: %v", err)
+					}
+					if err := driver.InstallAll(); err != nil {
 						log.Fatalf("❌ apt install failed: %v", err)
 					}
 					if err := installer.InstallFlatpak(pkgs.Flatpak); err != nil {
@@ -121,7 +123,11 @@ func main() {
 						return err
 					}
 					fmt.Println("✅ Added package to list")
-					err = debian.InstallSome(pkg)
+					driver, err := installer.GetDriverForRelease(pkgs.Distro, nil)
+					if err != nil {
+						log.Fatalf("❌ Failed to get driver for distro: %v", err)
+					}
+					err = driver.Install(pkg)
 					return err
 				},
 			},

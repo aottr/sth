@@ -35,26 +35,26 @@ func main() {
 
 					pkgs, err := internal.LoadPackages(cmd.String("file"))
 					if err != nil {
-						log.Fatalf("❌ Failed to load packages: %v", err)
+						log.Fatalf("failed to load packages: %v", err)
 					}
 
 					// Install apt, flatpak packages
-					driver, err := native.GetDriverForRelease(pkgs.Distro, pkgs)
+					driver, err := native.GetDriverForRelease(pkgs.Platform.Family, pkgs)
 					if err != nil {
-						log.Fatalf("❌ Failed to get driver for distro: %v", err)
+						log.Fatalf("failed to get driver for distro: %v", err)
 					}
 					if err := driver.InstallAll(); err != nil {
-						log.Fatalf("❌ apt install failed: %v", err)
+						log.Fatalf("apt install failed: %v", err)
 					}
 					if err := flatpak.InstallFlatpak(pkgs.Flatpak); err != nil {
-						log.Fatalf("❌ flatpak install failed: %v", err)
+						log.Fatalf("flatpak install failed: %v", err)
 					}
 
 					// Run remote recipes
 					for _, recipeName := range pkgs.Recipes {
-						recipe, err := recipes.FetchRecipe(recipeName, pkgs.Distro)
+						recipe, err := recipes.FetchRecipe(recipeName, pkgs.Platform.Distro)
 						if err != nil {
-							log.Fatalf("❌ Failed to fetch recipe '%s': %v", recipeName, err)
+							log.Fatalf("failed to fetch recipe '%s': %v", recipeName, err)
 						}
 						// check if installed
 						if recipes.IsInstalled(recipeName) {
@@ -62,7 +62,7 @@ func main() {
 							continue
 						}
 						if err := recipes.RunRecipe(recipeName, recipe); err != nil {
-							log.Fatalf("❌ Recipe '%s' failed: %v", recipeName, err)
+							log.Fatalf("recipe '%s' failed: %v", recipeName, err)
 						}
 					}
 
@@ -84,6 +84,19 @@ func main() {
 							return nil
 						},
 					},
+					{
+						Name:    "find",
+						Aliases: []string{"f"},
+						Usage:   "Find a recipe by name",
+						Action: func(ctx context.Context, c *cli.Command) error {
+							slug, err := recipes.FindRecipe(c.Args().First())
+							if err != nil {
+								return err
+							}
+							fmt.Println(*slug)
+							return nil
+						},
+					},
 				},
 			},
 			{
@@ -96,10 +109,12 @@ func main() {
 						Value:   "apt",
 						Aliases: []string{"t"},
 						Validator: func(t string) error {
-							if t == "apt" || t == "flatpak" || t == "recipe" {
+							switch t {
+							case "apt", "flatpak", "recipe":
 								return nil
+							default:
+								return fmt.Errorf("invalid package type: %s", t)
 							}
-							return fmt.Errorf("invalid package type: %s", t)
 						},
 					},
 				},
@@ -107,39 +122,77 @@ func main() {
 					&cli.StringArgs{
 						Name: "package",
 						Min:  0,
-						Max:  10,
+						Max:  20,
 					},
 				},
 				Usage: "Add a package to the list",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					pkgs, err := internal.LoadPackages(cmd.String("file"))
+					pkgConfig, err := internal.LoadPackages(cmd.String("file"))
 					if err != nil {
-						log.Fatalf("❌ Failed to load packages: %v", err)
+						log.Fatalf("failed to load packages: %v", err)
 					}
-					pkg := cmd.StringArgs("package")
-					if len(pkg) == 0 {
+
+					packageType := cmd.String("type")
+					names := cmd.StringArgs("package")
+					if len(names) == 0 {
 						return fmt.Errorf("no package specified")
 					}
-					err = pkgs.Add(internal.PackageTypeApt, pkg)
-					if err != nil {
-						return err
+
+					switch packageType {
+					case "apt":
+						if err := pkgConfig.Add(internal.PackageTypeApt, names); err != nil {
+							return err
+						}
+						driver, err := native.GetDriverForRelease(pkgConfig.Platform.Family, nil)
+						if err != nil {
+							log.Fatalf("failed to get driver for distro: %v", err)
+						}
+						err = driver.Install(names)
+						if err != nil {
+							return err
+						}
+					case "flatpak":
+						if err := pkgConfig.Add(internal.PackageTypeFlatpak, names); err != nil {
+							return err
+						}
+						if err := flatpak.InstallFlatpak(pkgConfig.Flatpak); err != nil {
+							log.Fatalf("flatpak install failed: %v", err)
+						}
+					case "recipe":
+						if err := pkgConfig.Add(internal.PackageTypeRecipe, names); err != nil {
+							return err
+						}
+						for _, recipeName := range names {
+							recipe, err := recipes.FetchRecipe(recipeName, pkgConfig.Platform.Distro)
+							if err != nil {
+								log.Fatalf("failed to fetch recipe '%s': %v", recipeName, err)
+							}
+							// check if installed
+							if recipes.IsInstalled(recipeName) {
+								fmt.Println("🔄 Skipping already installed recipe package: ", recipeName)
+								continue
+							}
+							if err := recipes.RunRecipe(recipeName, recipe); err != nil {
+								log.Fatalf("recipe '%s' failed: %v", recipeName, err)
+							}
+						}
 					}
-					fmt.Println("✅ Added package to list")
-					driver, err := native.GetDriverForRelease(pkgs.Distro, nil)
-					if err != nil {
-						log.Fatalf("❌ Failed to get driver for distro: %v", err)
-					}
-					err = driver.Install(pkg)
-					return err
+					return nil
 				},
 			},
 			{
 				Name:  "init",
 				Usage: "Initialize packages.yml",
+				Arguments: []cli.Argument{
+					&cli.StringArg{
+						Name:  "name",
+						Value: "New System",
+					},
+				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					_, err := internal.Init(cmd.String("file"))
+					_, err := internal.Init(cmd.String("file"), cmd.StringArg("name"))
 					if err != nil {
-						log.Fatalf("❌ Failed to initialize packages: %v", err)
+						log.Fatalf("failed to initialize packages: %v", err)
 					}
 					return nil
 				},
@@ -151,23 +204,4 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	// switch os.Args[1] {
-	// case "export":
-	// 	// Export currently installed packages (apt, snap, flatpak)
-	// 	outFile := "packages.yml"
-	// 	if len(os.Args) > 2 {
-	// 		outFile = os.Args[2]
-	// 	}
-	// 	// Using simplified export from previous example
-	// 	pkgs, _ := installer.ExportPackages()
-	// 	data, err := yaml.Marshal(&pkgs)
-	// 	if err != nil {
-	// 		log.Fatalf("❌ Failed to marshal YAML: %v", err)
-	// 	}
-	// 	if err := os.WriteFile(outFile, data, 0644); err != nil {
-	// 		log.Fatalf("❌ Failed to write %s: %v", outFile, err)
-	// 	}
-	// 	fmt.Printf("✅ Exported installed packages to %s\n", outFile)
-
 }

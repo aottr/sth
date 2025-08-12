@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/aottr/sth/internal/platform"
 	"github.com/aottr/sth/internal/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -19,12 +20,11 @@ const (
 type Packages struct {
 	path string
 
-	Name    *string           `yaml:"name,omitempty"`
-	Distro  string            `yaml:"distro"`
-	Arch    string            `yaml:"arch"`
-	Apt     map[string]string `yaml:"apt"`
-	Flatpak map[string]string `yaml:"flatpak"`
-	Recipes []string          `yaml:"recipes"`
+	Name     *string           `yaml:"name,omitempty"`
+	Platform platform.Info     `yaml:"platform"`
+	Apt      map[string]string `yaml:"apt"`
+	Flatpak  map[string]string `yaml:"flatpak"`
+	Recipes  []string          `yaml:"recipes"`
 }
 
 func LoadPackages(path string) (*Packages, error) {
@@ -75,12 +75,11 @@ func (p *Packages) saveConfig() error {
 	return nil
 }
 
-func Init(path string) (*Packages, error) {
+func Init(path, name string) (*Packages, error) {
 	packages := &Packages{
-		path:   path,
-		Name:   utils.StringPtr("New System"),
-		Distro: utils.DetectDistro(),
-		Arch:   utils.DetectArch(),
+		path:     path,
+		Name:     utils.StringPtr(name),
+		Platform: platform.GetPlatformInfo(),
 	}
 	if err := packages.saveConfig(); err != nil {
 		return nil, fmt.Errorf("failed to save packages.yml: %v", err)

@@ -5,8 +5,11 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"strings"
+	"time"
 
 	"github.com/aottr/sth/internal"
+	"github.com/aottr/sth/internal/cache"
 	"github.com/aottr/sth/internal/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -73,23 +76,48 @@ func FetchRecipeIndex(url string) (*internal.RecipeIndex, error) {
 	return &index, nil
 }
 
+func getRecipeIndex(url string) (*internal.RecipeIndex, error) {
+	var index internal.RecipeIndex
+
+	var err error
+	fresh := cache.CacheIsFresh(".sth.cache", time.Hour*12)
+	if fresh {
+		fmt.Println("Using cached recipe index")
+		err = cache.LoadCache(".sth.cache", &index)
+		if err != nil {
+			fmt.Println("failed to load cache. Continuing with remote fetch.")
+		}
+	}
+	if !fresh || err != nil {
+		index, err := FetchRecipeIndex(url)
+		if err != nil {
+			return nil, err
+		}
+		return index, nil
+
+	}
+	return &index, nil
+}
+
+func FindRecipe(name string) (*string, error) {
+	index, err := getRecipeIndex(RecipeIndex)
+	if err != nil {
+		return nil, err
+	}
+	for _, recipe := range index.Recipes {
+		if strings.Contains(recipe.Slug, name) {
+			return &recipe.Slug, nil
+		}
+	}
+	return nil, fmt.Errorf("recipe not found: %s", name)
+}
+
 // ListRecipes fetches and lists recipe names and descriptions from a remote index URL
 func ListRecipes() error {
-	resp, err := http.Get(RecipeIndex)
-	if err != nil {
-		return fmt.Errorf("failed to fetch index: %w", err)
-	}
-	defer resp.Body.Close()
 
-	data, err := io.ReadAll(resp.Body)
+	index, err := getRecipeIndex(RecipeIndex)
 	if err != nil {
-		return fmt.Errorf("failed to read index response: %w", err)
-	}
-
-	var index internal.RecipeIndex
-	err = yaml.Unmarshal(data, &index)
-	if err != nil {
-		return fmt.Errorf("failed to parse index YAML: %w", err)
+		return err
 	}
 
 	fmt.Println("Available recipes:")

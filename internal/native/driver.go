@@ -6,6 +6,7 @@ import (
 
 	"github.com/aottr/sth/internal"
 	"github.com/aottr/sth/internal/native/apt"
+	"github.com/aottr/sth/internal/platform"
 )
 
 type Op string
@@ -34,42 +35,17 @@ func ParseConstraint(s string) VersionConstraint {
 	}
 }
 
-func GetDriverForRelease(releaseID string, packages *internal.Packages) (Driver, error) {
-	id := strings.ToLower(strings.TrimSpace(releaseID))
+func GetDriverForRelease(family string, packages *internal.Packages) (Driver, error) {
 
-	debianFamily := map[string]struct{}{
-		"debian":     {},
-		"ubuntu":     {},
-		"linuxmint":  {},
-		"raspbian":   {},
-		"pop":        {}, // Pop!_OS
-		"neon":       {}, // KDE neon
-		"kali":       {},
-		"zorin":      {},
-		"elementary": {},
-	}
-
-	// rhelFamily := map[string]struct{}{
-	// 	"rhel":      {},
-	// 	"rocky":     {},
-	// 	"almalinux": {},
-	// 	"centos":    {},
-	// 	"fedora":    {},
-	// 	"oracle":    {},
-	// }
-
-	if _, ok := debianFamily[id]; ok {
+	switch family {
+	case platform.FamilyDebian:
 		if packages == nil {
 			return apt.New(map[string]string{}), nil
 		}
 		return apt.New(packages.Apt), nil
 	}
-	// if _, ok := rhelFamily[id]; ok {
-	// 	return RHELDriver{}
-	// }
 
-	// Default: try Debian semantics or return a no-op/unsupported driver
-	return nil, fmt.Errorf("unsupported distro: %s", id)
+	return nil, fmt.Errorf("unsupported system: %s", family)
 }
 
 type Driver interface {

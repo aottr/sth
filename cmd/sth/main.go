@@ -52,7 +52,11 @@ func main() {
 
 					// Run remote recipes
 					for _, recipeName := range pkgs.Recipes {
-						recipe, err := recipes.FetchRecipe(recipeName, pkgs.Platform.Distro)
+						rr, err := recipes.FindRecipe(recipeName)
+						if err != nil {
+							return fmt.Errorf("recipe not found")
+						}
+						recipe, err := recipes.FetchRecipe(*rr)
 						if err != nil {
 							log.Fatalf("failed to fetch recipe '%s': %v", recipeName, err)
 						}
@@ -163,7 +167,11 @@ func main() {
 							return err
 						}
 						for _, recipeName := range names {
-							recipe, err := recipes.FetchRecipe(recipeName, pkgConfig.Platform.Distro)
+							rr, err := recipes.FindRecipe(recipeName)
+							if err != nil {
+								return fmt.Errorf("recipe not found")
+							}
+							recipe, err := recipes.FetchRecipe(*rr)
 							if err != nil {
 								log.Fatalf("failed to fetch recipe '%s': %v", recipeName, err)
 							}

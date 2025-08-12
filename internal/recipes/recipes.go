@@ -17,9 +17,9 @@ import (
 const RecipeIndex = "https://raw.githubusercontent.com/aottr/sthpkgs/refs/heads/main/index.yml"
 const RecipesBase = "https://raw.githubusercontent.com/aottr/sthpkgs/refs/heads/main/"
 
-func FetchRecipe(name string, distro string) (*internal.Recipe, error) {
-	fmt.Printf("🌐 Downloading recipe for %s\n", name)
-	resp, err := http.Get(RecipesBase + name + "/" + distro + ".yml")
+func FetchRecipe(entry internal.RecipeIndexEntry) (*internal.Recipe, error) {
+	fmt.Printf("🌐 Downloading recipe for %s\n", entry.Name)
+	resp, err := http.Get(RecipesBase + entry.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to GET recipe: %w", err)
 	}
@@ -55,7 +55,7 @@ func IsInstalled(pkg string) bool {
 	return err == nil
 }
 
-func FetchRecipeIndex(url string) (*internal.RecipeIndex, error) {
+func fetchRecipeIndex(url string) (*internal.RecipeIndex, error) {
 	fmt.Printf("🌐 Downloading recipe index from %s\n", url)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -73,10 +73,11 @@ func FetchRecipeIndex(url string) (*internal.RecipeIndex, error) {
 	if err := yaml.Unmarshal(body, &index); err != nil {
 		return nil, fmt.Errorf("failed to parse recipe index YAML: %w", err)
 	}
+	cache.SaveCache(".sth.cache", &index)
 	return &index, nil
 }
 
-func getRecipeIndex(url string) (*internal.RecipeIndex, error) {
+func GetRecipeIndex(url string) (*internal.RecipeIndex, error) {
 	var index internal.RecipeIndex
 
 	var err error
@@ -89,7 +90,7 @@ func getRecipeIndex(url string) (*internal.RecipeIndex, error) {
 		}
 	}
 	if !fresh || err != nil {
-		index, err := FetchRecipeIndex(url)
+		index, err := fetchRecipeIndex(url)
 		if err != nil {
 			return nil, err
 		}
@@ -99,14 +100,14 @@ func getRecipeIndex(url string) (*internal.RecipeIndex, error) {
 	return &index, nil
 }
 
-func FindRecipe(name string) (*string, error) {
-	index, err := getRecipeIndex(RecipeIndex)
+func FindRecipe(name string) (*internal.RecipeIndexEntry, error) {
+	index, err := GetRecipeIndex(RecipeIndex)
 	if err != nil {
 		return nil, err
 	}
 	for _, recipe := range index.Recipes {
 		if strings.Contains(recipe.Slug, name) {
-			return &recipe.Slug, nil
+			return &recipe, nil
 		}
 	}
 	return nil, fmt.Errorf("recipe not found: %s", name)
@@ -115,7 +116,7 @@ func FindRecipe(name string) (*string, error) {
 // ListRecipes fetches and lists recipe names and descriptions from a remote index URL
 func ListRecipes() error {
 
-	index, err := getRecipeIndex(RecipeIndex)
+	index, err := GetRecipeIndex(RecipeIndex)
 	if err != nil {
 		return err
 	}

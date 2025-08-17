@@ -7,7 +7,9 @@ import (
 	"os"
 
 	"github.com/aottr/sth/internal"
+	"github.com/aottr/sth/internal/brew"
 	"github.com/aottr/sth/internal/flatpak"
+	"github.com/aottr/sth/internal/install"
 	"github.com/aottr/sth/internal/native"
 	"github.com/aottr/sth/internal/recipes"
 	"github.com/urfave/cli/v3"
@@ -39,16 +41,28 @@ func main() {
 					}
 
 					// Install apt, flatpak packages
-					driver, err := native.GetDriverForRelease(pkgs.Platform.Family, pkgs)
-					if err != nil {
-						log.Fatalf("failed to get driver for distro: %v", err)
-					}
-					if err := driver.InstallAll(); err != nil {
-						log.Fatalf("apt install failed: %v", err)
-					}
-					if err := flatpak.InstallFlatpak(pkgs.Flatpak); err != nil {
-						log.Fatalf("flatpak install failed: %v", err)
-					}
+					// driver, err := native.GetDriverForRelease(pkgs.Platform.Family, pkgs)
+					// if err != nil {
+					// 	log.Fatalf("failed to get driver for distro: %v", err)
+					// }
+					// if err := driver.InstallAll(); err != nil {
+					// 	log.Fatalf("apt install failed: %v", err)
+					// }
+					// if err := flatpak.InstallFlatpak(pkgs.Flatpak); err != nil {
+					// 	log.Fatalf("flatpak install failed: %v", err)
+					// }
+
+					// if err := brew.InstallWithBundle(pkgs.Brew, brew.InstallOptions{
+					// 	Prefetch:     false,
+					// 	NoAutoUpdate: true,
+					// }); err != nil {
+					// 	log.Fatalf("brew install failed: %v", err)
+					// }
+
+					install.InstallAll(install.Spec{
+						BrewFormulas: pkgs.Brew,
+						Flatpaks:     pkgs.Flatpak,
+					})
 
 					// Run remote recipes
 					for _, recipeName := range pkgs.Recipes {
@@ -98,6 +112,8 @@ func main() {
 								return err
 							}
 							fmt.Println(*slug)
+							r, _ := recipes.FetchRecipe(*slug)
+							fmt.Println(r.Target)
 							return nil
 						},
 					},
@@ -186,6 +202,24 @@ func main() {
 						}
 					}
 					return nil
+				},
+			},
+			{
+				Name:  "brew",
+				Usage: "Install packages from Homebrew",
+				Arguments: []cli.Argument{
+					&cli.StringArgs{
+						Name: "package",
+						Min:  0,
+						Max:  20,
+					},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+
+					return brew.InstallWithBundle(ctx, cmd.StringArgs("package"), brew.InstallOptions{
+						Prefetch:     false, // default off; enable if you know cache is cold
+						NoAutoUpdate: true,
+					})
 				},
 			},
 			{

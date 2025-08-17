@@ -14,6 +14,7 @@ type PackageType string
 const (
 	PackageTypeApt     PackageType = "apt"
 	PackageTypeFlatpak PackageType = "flatpak"
+	PackageTypeBrew    PackageType = "brew"
 	PackageTypeRecipe  PackageType = "recipes"
 )
 
@@ -23,7 +24,8 @@ type Packages struct {
 	Name     *string           `yaml:"name,omitempty"`
 	Platform platform.Info     `yaml:"platform"`
 	Apt      map[string]string `yaml:"apt"`
-	Flatpak  map[string]string `yaml:"flatpak"`
+	Flatpak  []string          `yaml:"flatpak"`
+	Brew     []string          `yaml:"brew"`
 	Recipes  []string          `yaml:"recipes"`
 }
 
@@ -58,7 +60,7 @@ func (p *Packages) addOne(PackageType PackageType, pkg string) {
 	case PackageTypeApt:
 		p.Apt[pkg] = "latest"
 	case PackageTypeFlatpak:
-		p.Flatpak[pkg] = "latest"
+		p.Flatpak = append(p.Flatpak, pkg)
 	case PackageTypeRecipe:
 		p.Recipes = append(p.Recipes, pkg)
 	}

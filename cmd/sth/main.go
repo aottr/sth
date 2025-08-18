@@ -12,6 +12,7 @@ import (
 	"github.com/aottr/sth/internal/install"
 	"github.com/aottr/sth/internal/native"
 	"github.com/aottr/sth/internal/recipes"
+	"github.com/aottr/sth/internal/sthpkgs"
 	"github.com/urfave/cli/v3"
 )
 
@@ -94,12 +95,22 @@ func main() {
 				Usage:   "Run or find a recipe",
 				Commands: []*cli.Command{
 					{
+						Name: "test",
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							recipe, _ := sthpkgs.FetchPackageRecipe("recipes/age/recipe.yml")
+							resolved, _ := sthpkgs.ResolveRecipe(ctx, *recipe)
+							// fmt.Println(recipe)
+							// fmt.Println(resolved)
+							err := sthpkgs.ExecuteResolved(ctx, resolved)
+							return err
+						},
+					},
+					{
 						Name:    "list",
 						Aliases: []string{"l", "ls"},
 						Usage:   "List all recipes",
 						Action: func(ctx context.Context, c *cli.Command) error {
-							recipes.ListRecipes()
-							return nil
+							return sthpkgs.ListRecipes()
 						},
 					},
 					{
